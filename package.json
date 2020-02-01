@@ -2,9 +2,11 @@
   "name": "@antcolag/npm-tools",
   "version": "1.0.0",
   "description": "npm wrapper for tools",
-  "main": "index.js",
   "scripts": {
-    "test": "test"
+    "test": "testone!!",
+    "build": "babel ./tools -d . --presets @babel/preset-env --ignore \"tools/doc/**\",\"tools/tests/**\"",
+    "clean": "rm ./*.js",
+    "install": "npm run build"
   },
   "author": "antcolag",
   "license": "GPL-2.0",
