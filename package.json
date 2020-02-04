@@ -3,7 +3,7 @@
   "version": "1.0.4",
   "description": "npm wrapper for tools",
   "scripts": {
-    "test": "testone!!",
+    "test": "echo 'no test'",
     "build": "babel ./tools -d . --presets @babel/preset-env --ignore \"tools/doc/**\",\"tools/tests/**\"",
     "clean": "rm ./*.js",
     "install": "npm run build"
