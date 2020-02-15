@@ -1,6 +1,6 @@
 {
   "name": "@antcolag/tools",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "npm wrapper for tools",
   "scripts": {
     "test": "echo 'no test'",
