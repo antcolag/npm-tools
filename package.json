@@ -3,20 +3,8 @@
   "version": "1.0.11",
   "description": "npm wrapper for tools",
   "scripts": {
-    "test": "echo 'no test'",
-    "build": "babel ./tools -d . --presets @babel/preset-env --ignore \"tools/doc/**\",\"tools/tests/**\"",
-    "clean": "rm ./*.js",
-    "install": "npm run build"
+    "test": "node ./test/run.js"
   },
   "author": "antcolag",
-  "license": "GPL-2.0",
-  "dependencies": {
-    "@babel/cli": "^7.7.5",
-    "@babel/core": "^7.4.0",
-    "@babel/plugin-transform-runtime": "^7.8.3",
-    "@babel/preset-env": "^7.4.2",
-    "@babel/register": "^7.4.0",
-    "@babel/runtime": "^7.8.4",
-    "babel-polyfill": "^6.26.0"
-  }
+  "license": "GPL-2.0"
 }
