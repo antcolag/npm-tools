@@ -3,8 +3,25 @@
   "version": "1.0.11",
   "description": "npm wrapper for tools",
   "scripts": {
-    "test": "node ./test/run.js"
+    "test": "node ./tests/run.mjs"
   },
   "author": "antcolag",
-  "license": "GPL-2.0"
+  "license": "GPL-2.0",
+  "main": "./tests/run.mjs",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/antcolag/npm-tools.git"
+  },
+  "keywords": [
+    "tools",
+    "es6"
+  ],
+  "bugs": {
+    "url": "https://github.com/antcolag/npm-tools/issues"
+  },
+  "homepage": "https://github.com/antcolag/npm-tools#readme"
 }
