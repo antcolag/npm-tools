@@ -15,8 +15,6 @@ import {
 
 export const BUFFER = Symbol('buffer')
 export const WAIT = Symbol('wait')
-export const BROADCAST = Symbol('broadcast')
-export const CLEAR = Symbol('clear')
 
 export const HANDLERS = {
 	read,
@@ -41,26 +39,25 @@ function broadcast(){
 	init.call(this)
 }
 
-async function read(){
-	if(arguments[0] < 0){
+function read(time){
+	if(time < 0){
 		return this[BUFFER]
 	}
 	if(!this[WAIT]){
 		init.call(this)
 	}
-	return await (arguments.length ? Promise.race([
-		this[WAIT].promise,
-		defer(arguments[0], noop)
-	]) : this[WAIT].promise)
+	return (time ? Semaphore.race([
+		this[WAIT],
+		defer(time, noop)
+	]) : this[WAIT])
 }
 
 function init(){
 	this[WAIT] = new Semaphore()
-	this[WAIT].promise.catch( e => {
+	this[WAIT].catch( e => {
 		this[BUFFER] = e
 	})
 }
-
 
 function flush(){
 	this[WAIT]

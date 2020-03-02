@@ -9,8 +9,7 @@ import {
 	injectProperties
 } from "./tools.mjs"
 import {
-	pipe,
-	different
+	pipe
 } from "./utils.mjs"
 
 export const BINDS = Symbol("binds")
@@ -25,7 +24,7 @@ export default function reactive() {
 	return injectProperties.call(this, HANDLERS)
 }
 
-function buildBinder (val, list, build) {
+function buildBinder (list, build, val) {
 	var recurring = 0
 	const setter = (v) => {
 		if(recurring++){
@@ -37,7 +36,8 @@ function buildBinder (val, list, build) {
 	}
 	return build({
 		set: setter,
-		get: () => val
+		get: () => val,
+		enumerable: true
 	})
 }
 
@@ -52,19 +52,20 @@ function bindable(id, build = pipe) {
 		return false
 	}
 	binds[id] = []
-	const buildedBinder = buildBinder(this[id], binds[id], build)
-	return Object.defineProperty(this, id, buildedBinder)
+	return buildProperty.call(
+		this,
+		id,
+		this[id],
+		buildBinder.bind(this, binds[id], build)
+	)
 }
 
-function bind(id, fun, name) {
+function bind(id, fun, name = id) {
 	const binds = check.call(this)
 	if(!binds[id]){
 		return false
 	}
 	if(typeof fun == "object"){
-		if(!name){
-			name = id
-		}
 		let who = fun
 		fun = (x) => who[name] = x
 	}
@@ -74,5 +75,9 @@ function bind(id, fun, name) {
 
 function unbind(id, key) {
 	const binds = check.call(this)
-	binds[id] = binds[id].filter(different.bind(key))
+	const index = binds[id].indexOf(key)
+	if(index < 0){
+		return
+	}
+	binds[id].splice(index, 1)
 }

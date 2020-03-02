@@ -4,7 +4,9 @@
  * @see module:utils
  */
 
-import { properties } from "./utils.mjs"
+import {
+	properties
+} from "./utils.mjs"
 
 /**
  * build the argument for Object.defineProperty
@@ -24,14 +26,21 @@ export const PropertyDefinitionBuilder = (writable, enumerable, value) => ({
  * @function
  * @param {*} value
  */
-export const constDefiner = PropertyDefinitionBuilder.bind(void 0, false, false)
+export const InternalConstDefiner = PropertyDefinitionBuilder.bind(void 0, false, false)
 
 /**
  * makes the argument for Object.defineProperty for build a variable property
  * @function
  * @param {*} value
  */
-export const variableDefiner = PropertyDefinitionBuilder.bind(void 0, false, false)
+export const variableDefiner = PropertyDefinitionBuilder.bind(void 0, true, false)
+
+/**
+ * makes the argument for Object.defineProperty for build a constant enumerable property
+ * @function
+ * @param {*} value
+ */
+export const constDefiner = PropertyDefinitionBuilder.bind(void 0, false, true)
 
 /**
  * add property if there isn't
@@ -39,7 +48,7 @@ export const variableDefiner = PropertyDefinitionBuilder.bind(void 0, false, fal
  * @param {*} value
  * @param {*} filter
  */
-export function buildProperty(name, value, filter = constDefiner){
+export function buildProperty(name, value, filter = InternalConstDefiner){
 	if(!(name in this)){
 		Object.defineProperty(this, name, filter(value))
 	}

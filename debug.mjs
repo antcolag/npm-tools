@@ -12,9 +12,6 @@
  * @throws {any}
  */
 export function croak(value){
-	if(!DEBUGGING){
-		return
-	}
 	throw value
 }
 
@@ -41,9 +38,6 @@ export const crap = type_check.bind(void 0, false);
  * @function
  */
 export function pause() {
-	if(!DEBUGGING){
-		return
-	}
 	debugger
 }
 
@@ -63,8 +57,8 @@ export function DEBUG(v) {
  * @param {any} val
  * @throws {any} - croacks the expr if check fails
  */
-export function ASSERT(expr, val) {
-	return val === expr || croak(expr)
+export function ASSERT(expr, val, msg) {
+	return val === expr || croak(msg || expr)
 }
 
 /**
@@ -73,8 +67,8 @@ export function ASSERT(expr, val) {
  * @param {any} expr
  * @throws {any} - croacks the boolean value of expr if check fails
  */
-export function ASSERT_T(expr) {
-	return ASSERT(!!expr, true)
+export function ASSERT_T(expr, msg) {
+	return ASSERT(!!expr, true, msg)
 }
 
 /**
@@ -83,8 +77,8 @@ export function ASSERT_T(expr) {
  * @param {any} expr
  * @throws {any} - croacks the boolean value of expr if check fails
  */
-export function ASSERT_F(expr) {
-	return ASSERT(!!expr, false)
+export function ASSERT_F(expr, msg) {
+	return ASSERT(!!expr, false, msg)
 }
 
 /**

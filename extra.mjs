@@ -1,30 +1,18 @@
-import {
-	BINDS,
-	default as reactive
- } from "./reactive.mjs"
-
+import reactive from "./reactive.mjs"
 import readable from "./readable.mjs"
-
 import observe from "./observe.mjs"
-
 import {
-	good
-} from "./debug.mjs"
-
-import {
+	constant,
 	fullpipe,
 	isUndefined,
 	pipe,
 	noop,
-	apply,
-	properties,
-	different
+	different,
+	debounce
 } from "./utils.mjs"
-
 import {
 	injectProperties
 } from "./tools.mjs"
-
 import {
 	DomPrinter
 } from "./dom.mjs"
@@ -33,62 +21,33 @@ import {
 /**
  * Base class for controllers, models and Views
  */
-class Unit { }
-
-observe.call(Unit.prototype)
+export class EventBroker { }
+observe.call(EventBroker.prototype)
 
 /**
  * it handle the data logic of the app
  * it takes an array of names that will be
  * expoted by reactive's bindable,
  * functions will be executed
+ * @param {...type} self
  * @param {...any} props
  */
-const HANDLER = Symbol('handler');
-export class Model extends Unit {
-	constructor(...props){
-		super()
-		props.forEach( id => {
-			if(typeof id == "function") {
-				this[HANDLER] = id;
-				return;
-			}
-			this.bindable(id)
-		})
-		if(!this[HANDLER]){
-			this[HANDLER] = Model.inline
+
+export function Model(self, ...props){
+	self = class Model extends self {
+		constructor(...args){
+			super(...args)
+			props.forEach( id => this.bindable(id))
+			var debounced = debounce(() => {
+				this.fire('update', this)
+			})
+			props.forEach( id => this.bind(id, debounced))
 		}
 	}
-
-	async update(...args){
-		try {
-			return this.fire('update',
-				await this[HANDLER](...args)
-			);
-		} catch (e){
-			return this.fire('reject', e)
-		} finally {
-			this.fire('done', ...args)
-		}
-	}
-
-	static struct(...args){
-		good(this, Model);
-		return Object.assign(this, ...args)
-	}
-
-	static inline(...args){
-		good(this, Model);
-		Object
-		.keys(this[BINDS])
-		.forEach( (id, i) =>{
-			this[id] = args[i]
-		})
-		return this
-	}
+	reactive.call(self.prototype)
+	observe.call(self.prototype)
+	return self;
 }
-
-reactive.call(Model.prototype)
 
 /**
  * it hanlde the rendering of the data
@@ -96,13 +55,16 @@ reactive.call(Model.prototype)
  * should return the rendered data
  * @param {function} render
  */
-export class View extends Unit {
-	constructor(render){
+
+ const RENDER = Symbol("render")
+export class View extends EventBroker {
+	constructor(render = constant('')){
 		super()
-		if(render){
-			good(render, 'function')
-			this.render = render
-		}
+		this[RENDER] = render
+	}
+
+	render(){
+		return this[RENDER](...arguments)
 	}
 
 	static set builder(hanlder) {
@@ -120,8 +82,7 @@ injectProperties.call(View.prototype, {
  * calling the method trigger
  */
 const HANDLERS = Symbol('handlers');
-const PATH = Symbol('path');
-export class Router extends Unit {
+export class Router extends EventBroker {
 	constructor() {
 		super()
 		this[HANDLERS] = [];
@@ -140,16 +101,12 @@ export class Router extends Unit {
 		return this[HANDLERS].length
 	}
 
-	trigger(path, ...args){
+	trigger(origin, ...args){
 		this.fire('trigger', ...arguments)
 		return this[HANDLERS].reduce(
-			reducer.bind(this, args, path),
+			reducer.bind(this, args, origin),
 			null
 		)
-	}
-
-	static path(data){
-		return data[PATH]
 	}
 }
 
@@ -157,33 +114,17 @@ function reducer(args, path, pre, x){
 	return pre || x.call(args, path, x)
 }
 
-
-/* TODO Symbol.search */
+const HANDLER = Symbol('handler');
 class Handler {
-	constructor(id, handler = pipe, ...names){
+	constructor(id, handler = pipe){
 		this.id = typeof id == 'string' ? new RegExp(id) : id
-		this.handler = handler
-		this.names = names
-	}
-
-	match(path) {
-		var opt = this.id.exec(path);
-		return opt && this.names.reduce(
-			matcher.bind(opt),
-			{ 
-				[PATH]: path
-			}
-		)
+		this[HANDLER] = handler
 	}
 
 	call(args, path) {
-		var opt = this.match(path);
-		return opt && this.handler(opt, ...args)
+		var opt = this.id[Symbol.match](path);
+		return opt && this[HANDLER](opt, ...args)
 	}
-}
-
-function matcher(prev, curr, i) {
-	return properties.call(prev, curr, this[i])
 }
 
 /**
@@ -192,28 +133,47 @@ function matcher(prev, curr, i) {
  * When invoked, it return your methods binded with the
  * arguments passed to invoke
  */
-const METHODS = Symbol('methods')
-export class Controller extends Unit {
-	constructor(methods, trigger = apply) {
+const REGISTERED = Symbol('registered')
+const TRIGGER = Symbol("trigger")
+export class Controller extends EventBroker {
+	constructor(init = {}, trigger = pipe){
 		super()
-		this[METHODS] = methods;
-		this.trigger = trigger;
-		this.invoke = this.invoke.bind(this)
+		Object.assign(
+			this[REGISTERED] = {},
+			init
+		)
+		this[TRIGGER] = trigger;
 	}
 
-	invoke() {
-		this.fire('invoke', ...arguments)
-		return new Proxy(this[METHODS], {
-			get: getter.bind(this, arguments),
+	static has(controller, method){
+		return controller[REGISTERED].hasOwnProperty(method)
+	}
+
+	set(method, handler) {
+		return this[REGISTERED][method] = handler
+	}
+
+	unset(method) {
+		return delete this[REGISTERED][method];
+	}
+
+	has(method){
+		return this[REGISTERED].hasOwnProperty(method)
+	}
+
+	invoke(...args) {
+		var resource = this[TRIGGER](...args)
+		this.fire('invoke', resource)
+		return new Proxy(this[REGISTERED], {
+			get: getter.bind(resource),
 			set: noop
 		})
 	}
 }
 
-async function getter(args, self, p) {
-	return await this.trigger(
-		self[p].bind(this, ...args)
-	)
+function getter(self, p) {
+	var target = self[p] || self['*']
+	return target.bind(this)
 }
 
 /**
@@ -224,10 +184,10 @@ async function getter(args, self, p) {
  * @param {function} handler
  */
 
-export class Broker extends Unit {
+export class Gateway extends EventBroker {
 	constructor(handler = fullpipe){
 		super()
-		this.handler = handler
+		this[HANDLER] = handler
 	}
 
 	async loop(resolve, reject = noop){
@@ -250,7 +210,7 @@ export class Broker extends Unit {
 	}
 
 	async broadcast(...args) {
-		args = await this.handler(...args)
+		args = await this[HANDLER](...args)
 		if(!args[Symbol.iterator]){
 			args = [args];
 		}
@@ -259,4 +219,4 @@ export class Broker extends Unit {
 	}
 }
 
-readable.call(Broker.prototype)
+readable.call(Gateway.prototype)
