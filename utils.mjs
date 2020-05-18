@@ -41,6 +41,18 @@ export function no(){
 }
 
 /**
+ * random int16
+ */
+export const random = ((buffer) => {
+	const f_buffer = new Float32Array(buffer)
+	const i_buffer = new Int16Array(buffer)
+	return (min = 0, max = 1 << 16) => {
+		f_buffer[0] = Math.random()
+		return ((i_buffer[0] + (1 << 15)) % (max - min)) + min
+	}
+})(new ArrayBuffer(4))
+
+/**
  * continue the execution after t milliseconds
  * @param {number} t
  * @returns {Promise}
@@ -85,6 +97,9 @@ export function debounce(f, t = 0) {
 /**
  * use it with string.match as regex pattern to build an object
  * from the given properties
+ * @example console.log(
+ * 	"foobar!".match(new RegObj(/\w+(bar\!)/, "baz"))
+ * ) // prints {baz: "bar!"}
  * @param {any} id
  * @param {...string} names
  */
@@ -225,6 +240,29 @@ export class Semaphore extends Promise {
 	get [Symbol.toStringTag]() {
 		return 'Semaphore';
 	}
+}
+
+/**
+ * deep merge two objects. skips symbols and non enumerable entries
+ * @param obj1 
+ * @param obj2 
+ */
+export function merge(obj1, obj2){
+	var keys = [...(new Set([
+		...typeof obj1 == "string"? [] : Object.keys(obj1 || {}),
+		...typeof obj2 == "string"? [] : Object.keys(obj2 || {})
+	]))]
+	if(!keys.length){
+		return obj1 || obj2
+	}
+	var dangerous = keys.indexOf('__proto__')
+	if(dangerous >= 0){
+		keys.splice(dangerous,1)
+	}
+	return keys.reduce((prev, curr) => {
+		prev[curr] = merge(obj1 && obj1[curr], obj2 && obj2[curr])
+		return prev
+	}, obj1)
 }
 
 /* just for joke */

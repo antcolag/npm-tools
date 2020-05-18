@@ -6,7 +6,10 @@ import reactive from "../reactive.mjs";
 import * as extra from "../extra.mjs";
 import {
 	pipe,
-	delay
+	random,
+	delay,
+	noop,
+	RegObj
 } from "../utils.mjs";
 import {
 	good,
@@ -15,7 +18,8 @@ import {
 	ASSERT_T,
 } from "../debug.mjs";
 import {
-	View
+	View,
+	EventBroker
 } from "../extra.mjs";
 
 const isBrowser = typeof Document != 'undefined' && document.body
@@ -94,7 +98,7 @@ new Test("tests should work", async function (arg) {
 
 	if(isBrowser){
 		await new Test(
-			"emmet should work",
+			"emmet should work in browser",
 			() => {
 	
 			var testDom = dom.emmet `a.b.c`
@@ -132,9 +136,9 @@ new Test("tests should work", async function (arg) {
 	} else {
 
 		await new Test(
-			"emmet should",
+			"emmet should work in node",
 			ASSERT_T
-		).run(dom.emmet `a#id.class.name[data-att="attr"]{bella }>({pe ${"tutti"}}` == '<a id="id" data-att="attr" class="class name">bella pe tutti</a>')
+		).run(dom.emmet `a#id.class.name[data-att="attr"]{bella }>{pe ${"tutti"}}` == '<a id="id" data-att="attr" class="class name">bella pe tutti</a>')
 	}
 	
 	await new Test('some extra', async function(){
@@ -142,7 +146,7 @@ new Test("tests should work", async function (arg) {
 		var model = new ConcreteModel()
 		var n = 0
 		var i = 0
-		model.on('update', function(){
+		model.on('updated', function(){
 			n++;
 		})
 		model.bind('foo', function(x){
@@ -198,6 +202,53 @@ new Test("tests should work", async function (arg) {
 		ASSERT_T(bar.innerText == n)
 		return true
 	}).run()
+
+	ASSERT_T("foobar!".match(new RegObj(/\w+(bar\!)/, "baz")).baz == "bar!")
+
+	var evt = new EventBroker()
+	var x = 0
+	var handler = () => ++x
+	evt.on('one', handler)
+	evt.on('two', handler)
+	evt.on('three', handler)
+
+	await delay(100)
+	evt.fireLast('one')
+	evt.fireLast('two')
+	evt.fireLast('three')
+
+	await delay(100)
+
+	ASSERT_T(x == 1)
+
+	const randomTest = await new Test('random', async function(tot, i1 = 0, i2 = 1 << 15, handler = noop){
+		function randomInteger(min = 0, max = 2 << 15) {
+			return Math.floor(Math.random() * (max - min + 1)) + min;
+		}
+		var now = typeof performance === "undefined" ? 	now = Date.now : performance.now.bind(performance)
+		var s0 = now();
+		for(var i = 0; i < tot; i++){
+			handler(randomInteger(i1, i2))
+		}
+		var e0 = now();
+
+		var s1 = now();
+		for(var i = 0; i < tot; i++){
+			handler(random(i1, i2))
+		}
+		var e1 = now();
+
+		var t0 = e0 - s0, t1 = e1 - s1, r = t0 - t1
+		if(r < 0){
+			throw r
+		}
+		return r
+	})
+
+	randomTest.run(1000)
+	randomTest.run(10000)
+	randomTest.run(100000)
+	randomTest.run(1000000, -1200, 3456)
 
 	return arg
 }).run(true)

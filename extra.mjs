@@ -6,9 +6,7 @@ import {
 	fullpipe,
 	isUndefined,
 	pipe,
-	noop,
-	different,
-	debounce
+	noop
 } from "./utils.mjs"
 import {
 	injectProperties
@@ -21,8 +19,11 @@ import {
 /**
  * Base class for controllers, models and Views
  */
-export class EventBroker { }
-observe.call(EventBroker.prototype)
+export class EventBroker {
+	constructor(){
+		observe.call(this)
+	}
+}
 
 /**
  * it handle the data logic of the app
@@ -34,19 +35,16 @@ observe.call(EventBroker.prototype)
  */
 
 export function Model(self, ...props){
-	self = class Model extends self {
+	class Model extends self {
 		constructor(...args){
 			super(...args)
 			props.forEach( id => this.bindable(id))
-			var debounced = debounce(() => {
-				this.fire('update', this)
-			})
-			props.forEach( id => this.bind(id, debounced))
+			props.forEach( id => this.bind(id, this.fireLast.bind(this, 'updated')))
 		}
 	}
-	reactive.call(self.prototype)
-	observe.call(self.prototype)
-	return self;
+	reactive.call(Model.prototype)
+	observe.call(Model.prototype)
+	return Model;
 }
 
 /**
@@ -56,25 +54,20 @@ export function Model(self, ...props){
  * @param {function} render
  */
 
- const RENDER = Symbol("render")
-export class View extends EventBroker {
-	constructor(render = constant('')){
-		super()
-		this[RENDER] = render
-	}
+export class ViewBase extends EventBroker {}
 
-	render(){
-		return this[RENDER](...arguments)
-	}
-
-	static set builder(hanlder) {
-		this.prototype.print.builder = hanlder
-	}
-}
-
-injectProperties.call(View.prototype, {
+injectProperties.call(ViewBase.prototype, {
 	print: new DomPrinter()
 })
+
+export function View(render = constant("")) {
+	class View extends ViewBase {
+		render(){
+			return render.apply(this, arguments)
+		}
+	}
+	return new.target ? new View : View
+}
 
 /**
  * you can add a route by invoking the add method
@@ -83,9 +76,12 @@ injectProperties.call(View.prototype, {
  */
 const HANDLERS = Symbol('handlers');
 export class Router extends EventBroker {
-	constructor() {
+	constructor(method = "reduce", handler = reducer) {
 		super()
 		this[HANDLERS] = [];
+		this[HANDLERS].method = method
+		this[HANDLERS].handler = handler
+		this[HANDLERS].fallback = noop
 	}
 
 	add() {
@@ -94,24 +90,28 @@ export class Router extends EventBroker {
 		return result
 	}
 
+	fallback(handler) {
+		this[HANDLERS].fallback = handler || noop
+	}
+
 	remove() {
-		this[HANDLERS] = this[HANDLERS].filter(
-			different.bind(void 0, ...arguments)
-		)
+		do {
+			var id = this[HANDLERS].indexOf(...arguments)
+		} while(id >= 0 && this[HANDLERS].splice(id, 1))
 		return this[HANDLERS].length
 	}
 
 	trigger(origin, ...args){
 		this.fire('trigger', ...arguments)
-		return this[HANDLERS].reduce(
-			reducer.bind(this, args, origin),
+		return this[HANDLERS][this[HANDLERS].method](
+			this[HANDLERS].handler.bind(this, origin, args),
 			null
-		)
+		) || this[HANDLERS].fallback.apply(this, args)
 	}
 }
 
-function reducer(args, path, pre, x){
-	return pre || x.call(args, path, x)
+function reducer(path, args, pre, x){
+	return pre || x.call(path, args, x)
 }
 
 const HANDLER = Symbol('handler');
@@ -121,7 +121,7 @@ class Handler {
 		this[HANDLER] = handler
 	}
 
-	call(args, path) {
+	call(path, args) {
 		var opt = this.id[Symbol.match](path);
 		return opt && this[HANDLER](opt, ...args)
 	}
