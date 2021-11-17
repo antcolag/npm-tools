@@ -7,10 +7,14 @@
 import {
 	croak
 } from "./debug.mjs"
+
 import {
-	pipe,
 	fullpipe
 } from "./utils.mjs"
+
+import {
+	pipe
+} from "./operation.mjs"
 
 /**
  * this class provides the functions for build
@@ -54,7 +58,9 @@ export class DomPrinter {
 	}
 
 	auto(strings) {
-		return (/^\s*</.test(strings[0])? this.html : this.emmet)(...arguments)
+		return (/^\s*</.test(strings[0])? this.html : this.emmet).apply(
+			this, arguments
+		)
 	}
 }
 

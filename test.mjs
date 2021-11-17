@@ -9,7 +9,7 @@
 import {
 	noop,
 	pipe
-} from "./utils.mjs"
+} from "./operation.mjs"
 
 import {
 	good,
@@ -63,6 +63,7 @@ export class Test {
 			return await this.run(fail.state == "FAILED");
 		} finally {
 			this.print = this.constructor.prototype.print
+			this.test = fail.test
 		}
 	}
 }
@@ -100,7 +101,7 @@ function consolePrinter(...args) {
 	var par = args[args.length - 1]
 	args.pop()
 	var logmsg = args.length? ' [' + args.join() + ']' : ''
-	console.log(
+	console[status == states.PASSED ? 'log' : 'error'](
 		`${this.id}) %c${status}%c -> ${this.description}${logmsg}%c (${par}):`,
 		`color:${color}`, "color:initial;font-style: oblique", "color:initial", this.result
 	)

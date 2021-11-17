@@ -4,14 +4,20 @@ import readable from "../readable.mjs";
 import reactive from "../reactive.mjs";
 import * as extra from "../extra.mjs";
 import {
-	pipe,
 	random,
 	delay,
-	noop,
-	RegObj
+	RegObj,
+	debounce,
+	merge,
+	Semaphore
 } from "../utils.mjs";
 import {
+	pipe,
+	noop
+} from "../operation.mjs";
+import {
 	good,
+	croak,
 	crap,
 	ASSERT,
 	ASSERT_T,
@@ -20,18 +26,18 @@ import {
 	View,
 	EventBroker
 } from "../extra.mjs";
-import {
-	debounce
-} from "../utils.mjs";
-import {
-	Semaphore
-} from "../utils.mjs";
 
 const isBrowser = typeof Document != 'undefined' && document.body
+const p =  typeof performance === "undefined" ? Date : performance
+const now = p.now.bind(p)
 
-new Test("tests should work", async function (arg) {
-	var tests = new Test(
-		"reactive and events should work",
+export async function testTest() {
+	return await new Test("tests should work", noop).run(true)
+}
+
+export async function testReactive(){
+	var test1 = new Test(
+		"reactive and events should work init",
 		() => {
 			var r = new reactive()
 			r.bindable('foo')
@@ -44,26 +50,43 @@ new Test("tests should work", async function (arg) {
 			return ASSERT_T(o.foo == r.foo && o.bar == r.bar)
 		}
 	)
-	tests.bind("result", this, "reactiveResult")
-	tests.on(
-		"PASSED FAILED complete",
-		ASSERT.bind(null, this.reactiveResult, tests.result)
+	var test2 = new Test(
+		"reactive and events should work end",
+		async function () {
+			test1.bind("result", this, "reactiveResult")
+			test1.on(
+				"PASSED FAILED complete",
+				ASSERT.bind(null, this.reactiveResult, test1.result)
+			)
+			await test1.run(true)
+		}
 	)
-	await tests.run(true)
 
-	good(1, Boolean, Number)
+	await test2.run()
+}
 
-	crap(1, Boolean, Object)
 
-	good(()=>{}, "function")
+export async function testGoodCrap() {
+
 
 	await new Test(
-		"good should die if not pass",
+		"good and crap pass",
+		() => {
+			good(1, Boolean, Number)
+
+			crap(1, Boolean, Object)
+
+			good(()=>{}, "function")
+		}
+	).run(true)
+
+	await new Test(
+		"good die",
 		good.bind(null, 1, Boolean)
 	).die(true)
 
 	await new Test(
-		"crap should die if not pass",
+		"crap die",
 		crap.bind(null, 1, Number)
 	).die(true)
 
@@ -71,7 +94,9 @@ new Test("tests should work", async function (arg) {
 		"should fail if description is not a String",
 		() => new Test(-1).run()
 	).die(true)
+}
 
+export async function testReadable() {
 	readable.call(console)
 	var i = 0;
 	var timer = setInterval(()=>{
@@ -98,7 +123,11 @@ new Test("tests should work", async function (arg) {
 	).run(await console.read()).finally(() => clearInterval(timer2))
 
 	clearInterval(timer)
+}
 
+
+
+export async function testEmmet() {
 	if(isBrowser){
 		await new Test(
 			"emmet should work in browser",
@@ -116,8 +145,13 @@ new Test("tests should work", async function (arg) {
 						${document.querySelector('h1')}+p{with fun}+ul>
 						.azz*3`
 			)
-			document.body.appendChild(dom.emmet `div$$.c-\${$$$@3chiaro?$$@-8!!!}*3`)
-	
+			document.body.appendChild(
+				dom.emmet `div$$.c-\${$$$@3chiaro?$$@-8!!!}*3`
+			)
+			document.body.appendChild(
+				(new dom.DomPrinter()).auto `div$$.c-\${$$$@3chiaro?$$@-8!!!}*3`
+			)
+			ASSERT_T(document.querySelector('div02'))
 			return ASSERT_T(document.querySelector('agli#altri'))
 		}).run()
 	
@@ -134,7 +168,12 @@ new Test("tests should work", async function (arg) {
 		await new Test(
 			"escaped emmet should work",
 			document.body.append.bind(document.body)
-		).run(dom.emmet `article>${myTitle2}.title>{\\\\\\} } + span{hello ${567}} ^ ${myTitle}>{weeee}`)
+		).run(dom.emmet `
+			article>${
+				myTitle2
+			}.title>{\\\\\\} } + span{hello ${567}} ^ ${
+				myTitle
+			}>{weeee}`)
 		myTitle2.innerHTML += 'emmet!'
 
 		await new Test('custom html element', async function() {
@@ -159,7 +198,9 @@ new Test("tests should work", async function (arg) {
 				}
 			}
 
-			globalThis.customElements.define('custom-elm', class extends HTMLElement {
+			globalThis
+			.customElements
+			.define('custom-elm', class extends HTMLElement {
 				constructor() {
 					super()
 					this.attachShadow({
@@ -178,7 +219,10 @@ new Test("tests should work", async function (arg) {
 			ASSERT_T
 		).run(dom.emmet `a#id.class.name[data-att="attr"]{bella }>{pe ${"tutti"}}` == '<a id="id" data-att="attr" class="class name">bella pe tutti</a>')
 	}
+}
 
+
+export async function testExtra() {
 	await new Test('some extra', async function(){
 		class ConcreteModel extends extra.Model(Object, 'foo', 'bar', 'baz') {}
 		var model = new ConcreteModel()
@@ -240,25 +284,36 @@ new Test("tests should work", async function (arg) {
 		ASSERT_T(bar.innerText == n)
 		return true
 	}).run()
+}
 
-	ASSERT_T("foobar!".match(new RegObj(/\w+(bar\!)/, "baz")).baz == "bar!")
+export async function testRegObj() {
+	return await new Test("reg obj", async () =>{
+		ASSERT_T("foobar!".match(new RegObj(/\w+(bar\!)/, "baz")).baz == "bar!")
+	}).run()
+}
 
-	var evt = new EventBroker()
-	var x = 0
-	var handler = () => ++x
-	evt.on('one', handler)
-	evt.on('two', handler)
-	evt.on('three', handler)
 
-	await delay(100)
-	evt.fireLast('one')
-	evt.fireLast('two')
-	evt.fireLast('three')
+export async function testEventBroker() {
+	return await new Test("event broker", async () =>{
+		var evt = new EventBroker()
+		var x = 0
+		var handler = () => ++x
+		evt.on('one', handler)
+		evt.on('two', handler)
+		evt.on('three', handler)
 
-	await delay(100)
+		await delay(100)
+		evt.fireLast('one')
+		evt.fireLast('two')
+		evt.fireLast('three')
 
-	ASSERT_T(x == 1)
+		await delay(100)
 
+		ASSERT_T(x == 1)
+	}).run()
+}
+
+export async function testDebounce() {
 	await new Test('debounce', (count, interval, debouncing) => {
 		var int, semaphore = new Semaphore();
 		var f = debounce(function(count){
@@ -276,35 +331,93 @@ new Test("tests should work", async function (arg) {
 		}, interval)
 		return semaphore;
 	}).run(10, 10, 200)
+}
 
-	const randomTest = new Test('random', async function(tot, i1 = 0, i2 = 1 << 15, handler = noop){
-		function randomInteger(min = 0, max = 2 << 15) {
-			return Math.floor(Math.random() * (max - min + 1)) + min;
+export async function testMerge() {
+	var test = new Test("merge", function(method, X, Y, times = 100000) {
+		var start = now()
+		while(times--){
+			var x = method(new X(), new Y())
 		}
-		var now = typeof performance === "undefined" ? 	now = Date.now : performance.now.bind(performance)
-		var s0 = now();
-		for(var i = 0; i < tot; i++){
-			handler(randomInteger(i1, i2))
-		}
-		var e0 = now();
-
-		var s1 = now();
-		for(var i = 0; i < tot; i++){
-			handler(random(i1, i2))
-		}
-		var e1 = now();
-
-		var t0 = e0 - s0, t1 = e1 - s1, r = t0 - t1
-		if(r < 0){
-			throw r
-		}
-		return r
+		var stop = now()
+		x.toString()
+		return stop - start
 	})
 
-	await randomTest.run(1000)
-	await randomTest.run(10000)
-	await randomTest.run(100000)
-	await randomTest.run(1000000, -1200, 3456)
+	var x1 = {
+		x: 1,
+		y: 2,
+		z: {
+			x: 1,
+			y: 2,
+			z: {
+				x: 1
+			}
+		}
+	}, y1 = {
+		x: 100,
+		y2: 200,
+		z: {
+			x: 100,
+			y: 200,
+			z2: {
+				x: 200
+			}
+		}
+	}, x2 = {
+		x: 1,
+		y: 2,
+		__proto__: {
+			toString(){
+				return "ok"
+			}
+		}
+	}, y2 = {
+		x: 100,
+		y2: 200,
+		__proto__: {
+			toString(){
+				return croak("bad string")
+			}
+		}
+	}
+	function m() {
+		return merge(...arguments)
+	}
+	await test.run(m, function() {
+		return x1
+	}, function() {
+		return y1
+	})
+	await test.run(m, function() {
+		return x2
+	}, function() {
+		return y2
+	})
+	await test.die(m, class Z {}, function() {
+		return {["__proto__"]: {toString(){throw "__proto__ pollution 1"}}}
+	})
+	await test.die(m, class Z {}, function() {
+		return JSON.parse(`{"constructor": false, "__proto__": {"a": 1337}}`)
+	})
+	// class Z{}
+	// merge(new Z, JSON.parse(`{"constructor": false, "__proto__": {"a": 1337}}`))
+	// var x = new Z
+	// if(x.a){
+	// 	throw "aaargh"
+	// }
+}
 
-	return arg
-}).run(true)
+export async function run(arr = Object.keys(this)){
+	console.log(`init ${arr}`)
+	for(var i of arr) {
+		i != "run" && await runSingle(this[i])
+	}
+	console.log(`done`)
+}
+
+async function runSingle(h) {
+	console.log(`start ${h.name}`)
+	await h()
+	console.log(`stop ${h.name}`)
+}

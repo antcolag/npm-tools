@@ -2,12 +2,15 @@ import reactive from "./reactive.mjs"
 import readable from "./readable.mjs"
 import observe from "./observe.mjs"
 import {
-	constant,
-	fullpipe,
-	isUndefined,
-	pipe,
-	noop
+	fullpipe
 } from "./utils.mjs"
+
+import {
+	constant,
+	pipe,
+	isUndefined,
+	noop
+} from "./operation.mjs"
 import {
 	injectProperties
 } from "./tools.mjs"
@@ -38,8 +41,7 @@ export function Model(self, ...props){
 	class Model extends self {
 		constructor(...args){
 			super(...args)
-			props.forEach( id => this.bindable(id))
-			props.forEach( id => this.bind(id, this.fireLast.bind(this, 'updated')))
+			initModel.apply(this, props)
 		}
 	}
 	reactive.call(Model.prototype)
@@ -47,6 +49,12 @@ export function Model(self, ...props){
 	return Model;
 }
 
+Model.init = initModel
+
+function initModel(...props){
+	props.forEach( id => this.bindable(id))
+	props.forEach( id => this.bind(id, this.fireLast.bind(this, 'updated')))
+}
 /**
  * it hanlde the rendering of the data
  * it takes the render function, that

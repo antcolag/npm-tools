@@ -3,19 +3,12 @@
  * @module
  */
 
-/**
- * do nothing
- */
-export function noop(){}
-
-/**
- * Pipes value
- * @param {any} v
- * @returns {any} the same value in input
- */
-export function pipe(v){
-	return v
-}
+import {
+	apply,
+	noop,
+	inverse,
+	or
+} from "./operation.mjs"
 
 /**
  * Pipes the arguments array
@@ -26,31 +19,9 @@ export function fullpipe(){
 	return arguments
 }
 
-/**
- * returns true
- */
-export function yes(){
-	return true
+export function random(min = 0, max = 2 << 15) {
+	return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-
-/**
- * returns false
- */
-export function no(){
-	return false
-}
-
-/**
- * random int16
- */
-export const random = ((buffer) => {
-	const f_buffer = new Float32Array(buffer)
-	const i_buffer = new Int16Array(buffer)
-	return (min = 0, max = 1 << 16) => {
-		f_buffer[0] = Math.random()
-		return ((i_buffer[0] + (1 << 15)) % (max - min)) + min
-	}
-})(new ArrayBuffer(4))
 
 
 
@@ -178,83 +149,6 @@ export class RegObj {
 }
 
 /**
- * apply a function to arguments
- * @param {function} f
- * @param {...any} args
- */
-export function apply(f, ...args) {
-	return f.apply(this, args)
-}
-
-/**
- * return a function that apply a handler to arguments
- * @param {function} f
- * @param {...any} values
- */
-export function applyWithConst(f, ...values){
-	return (obj) => f(obj, ...values)
-}
-
-/**
- * performs a strict equal comparison
- * @param {any} obj
- * @param {any} value
- */
-export function equals(obj, value){
-	return obj === value
-}
-
-/**
- * performs a strict different comparison
- * @param {any} obj
- * @param {any} value
- */
-export function different(obj, value){
-	return obj !== value
-}
-
-/**
- * return a value provider function
- * @param val value to be returned
- */
-
-export function constant(val) {
-	return apply.bind(void 0, pipe, val)
-}
-
-/**
- * generator for comparison functions with constant values
- * @function
- * @param {any} value
- * @param {any} costant
- */
-export const compareWhitConst = applyWithConst.bind(void 0, equals)
-
-/**
- * @function
- * @param {any} value
- */
-export const isNull = compareWhitConst(null)
-
-/**
- * @function
- * @param {any} value
- */
-export const isUndefined = compareWhitConst(void 0)
-
-/**
- * @function
- * @param {any} value
- */
-export const isTrue = compareWhitConst(true)
-
-/**
- * @function
- * @param {any} value
- */
-export const isFalse = compareWhitConst(false)
-
-/**
  * it sets one or more copule of key value pair
  * passed plain to a function
  * ie
@@ -276,72 +170,18 @@ export function properties(name, value, ...args) {
  * @param obj1 
  * @param obj2 
  */
-export function merge(obj1, obj2){
-	var keys = [...(new Set([
-		...typeof obj1 == "string"? [] : Object.keys(obj1 || {}),
-		...typeof obj2 == "string"? [] : Object.keys(obj2 || {})
-	]))]
-	if(!keys.length){
-		return obj1 || obj2
-	}
-	var dangerous = keys.indexOf('__proto__')
-	if(dangerous >= 0){
-		keys.splice(dangerous,1)
-	}
-	return keys.reduce((prev, curr) => {
-		prev[curr] = merge(obj1 && obj1[curr], obj2 && obj2[curr])
+export function merge(obj1, obj2, handler = inverse(or)){
+	var keys = [...new Set(
+		typeof obj2 == "string"? Array.prototype : Object.keys(obj2 || Object.prototype)
+	)]
+	return keys.length ? keys.reduce((prev = {}, curr) => {
+		if(curr == "__proto__"){
+			throw new TypeError("Prototype pollution")
+		}
+		if(curr == "constructor"){
+			throw new TypeError("Ovverride constructor")
+		}
+		prev[curr] = merge(obj1 && obj1[curr], obj2 && obj2[curr], handler)
 		return prev
-	}, obj1)
+	}, obj1) : handler(obj1, obj2)
 }
-
-/* just for joke */
-export const lisperato = new Proxy({
-	l(x, ...args){
-		return this.cons(x, args[0] && this.l(...args))
-	},
-	cons(_car, _cdr){
-		return (f) => {
-			return f(_car, _cdr);
-		}
-	},
-	car(_cons){
-		return _cons((_car, _cdr) => _car)
-	},
-	cdr(_cons){
-		return _cons((_car, _cdr) => _cdr)
-	},
-	exec(p, s) {
-		return this.cdr(p)
-		? this.exec(this.cdr(p), this.car(p)(s))
-		: this.car(p)(s)
-	},
-	[Symbol.toPrimitive](hint){
-		switch (hint){
-		case "number":
-			return Number.MAX_VALUE;
-		case "string":
-			return '[Object ' + this.toString() + ']'
-		default:
-		}
-		return this
-	},
-	toString() {
-		return "lisperato!"
-	}
-}, {
-	get(namespace, name) {
-		if(name in namespace) {
-			return namespace[name]
-		}
-		var multi = name.match(/^c([ad]).*r$/) || []
-		if(multi[1]){ // abra cadadr-a
-			return (x) => this.get(
-				namespace,
-				name.replace(new RegExp(multi[1]), '')
-			)(namespace[`c${multi[1]}r`](x))
-		}
-	},
-	set(namespace){
-		throw new TypeError(`Write on a ${namespace} instance is not allowed`)
-	}
-})
